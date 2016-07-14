@@ -71,7 +71,9 @@ class TouchManager {
         handleDragGesture();
         handlePinchGesture();
 
-        if (isUpAction(event.getActionMasked())) {
+        if (isUpAction(event.getActionMasked()) && event.getPointerCount() == 1) {
+            setMinimumScale();
+            setLimits();
             ensureInsideViewport();
         }
     }
@@ -125,7 +127,6 @@ class TouchManager {
             return;
         }
         updateScale();
-        setLimits();
     }
 
     private void centerInViewport() {
@@ -229,8 +230,6 @@ class TouchManager {
         if (previousDistance != 0) {
             newScale *= currentDistance / previousDistance;
         }
-        newScale = newScale < minimumScale ? minimumScale : newScale;
-        newScale = newScale > maximumScale ? maximumScale : newScale;
 
         scale = newScale;
     }
