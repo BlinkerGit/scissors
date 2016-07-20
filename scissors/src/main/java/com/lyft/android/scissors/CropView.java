@@ -46,6 +46,7 @@ import java.io.OutputStream;
 public class CropView extends ImageView {
 
     private static final int MAX_TOUCH_POINTS = 2;
+    private CropViewConfig config;
     private TouchManager touchManager;
 
     private Paint viewportPaint = new Paint();
@@ -67,10 +68,8 @@ public class CropView extends ImageView {
     }
 
     void initCropView(Context context, AttributeSet attrs) {
-        CropViewConfig config = CropViewConfig.from(context, attrs);
-
+        config = CropViewConfig.from(context, attrs);
         touchManager = new TouchManager(MAX_TOUCH_POINTS, config);
-
         bitmapPaint.setFilterBitmap(true);
         viewportPaint.setColor(config.getViewportOverlayColor());
     }
@@ -109,7 +108,7 @@ public class CropView extends ImageView {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        resetTouchManager();
+        resizeTouchManager();
     }
 
     /**
@@ -142,7 +141,7 @@ public class CropView extends ImageView {
             ratio = getImageRatio();
         }
         touchManager.setAspectRatio(ratio);
-        resetTouchManager();
+        resizeTouchManager();
         invalidate();
     }
 
@@ -178,6 +177,7 @@ public class CropView extends ImageView {
     public void setImageBitmap(@Nullable Bitmap bitmap) {
         this.bitmap = bitmap;
         resetTouchManager();
+        resizeTouchManager();
         invalidate();
     }
 
@@ -190,6 +190,10 @@ public class CropView extends ImageView {
     }
 
     private void resetTouchManager() {
+        touchManager = new TouchManager(MAX_TOUCH_POINTS, config);
+    }
+
+    private void resizeTouchManager() {
         final boolean invalidBitmap = bitmap == null;
         final int bitmapWidth = invalidBitmap ? 0 : bitmap.getWidth();
         final int bitmapHeight = invalidBitmap ? 0 : bitmap.getHeight();
