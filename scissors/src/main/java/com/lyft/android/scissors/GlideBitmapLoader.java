@@ -48,7 +48,6 @@ public class GlideBitmapLoader implements BitmapLoader {
                 .override(Math.min(1600, transformation.viewportWidth), Math.min(1200, transformation.viewportHeight))
                 .skipMemoryCache(true)
                 .diskCacheStrategy(DiskCacheStrategy.RESULT)
-                .transform(transformation)
                 .into(imageView);
     }
 
