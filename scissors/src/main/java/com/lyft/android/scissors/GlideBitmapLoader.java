@@ -18,11 +18,11 @@ package com.lyft.android.scissors;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.widget.ImageView;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
-import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 
 /**
  * A {@link BitmapLoader} with transformation for {@link Glide} image library.
@@ -33,9 +33,9 @@ import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 public class GlideBitmapLoader implements BitmapLoader {
 
     private final RequestManager requestManager;
-    private final BitmapTransformation transformation;
+    private final GlideFillViewportTransformation transformation;
 
-    public GlideBitmapLoader(@NonNull RequestManager requestManager, @NonNull BitmapTransformation transformation) {
+    public GlideBitmapLoader(@NonNull RequestManager requestManager, @NonNull GlideFillViewportTransformation transformation) {
         this.requestManager = requestManager;
         this.transformation = transformation;
     }
@@ -45,7 +45,7 @@ public class GlideBitmapLoader implements BitmapLoader {
         Glide.clear(imageView);
         requestManager.load(model)
                 .asBitmap()
-                .centerCrop()
+                .override(Math.min(1600, transformation.viewportWidth), Math.min(1200, transformation.viewportHeight))
                 .skipMemoryCache(true)
                 .diskCacheStrategy(DiskCacheStrategy.RESULT)
                 .transform(transformation)

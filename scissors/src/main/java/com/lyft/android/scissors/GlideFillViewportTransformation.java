@@ -22,8 +22,8 @@ import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 
 class GlideFillViewportTransformation extends BitmapTransformation {
 
-    private final int viewportWidth;
-    private final int viewportHeight;
+    public final int viewportWidth;
+    public final int viewportHeight;
 
     public GlideFillViewportTransformation(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
         super(bitmapPool);
@@ -53,7 +53,7 @@ class GlideFillViewportTransformation extends BitmapTransformation {
         return getClass().getName();
     }
 
-    public static BitmapTransformation createUsing(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
+    public static GlideFillViewportTransformation createUsing(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
         return new GlideFillViewportTransformation(bitmapPool, viewportWidth, viewportHeight);
     }
 }
