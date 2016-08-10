@@ -42,6 +42,7 @@ public class GlideBitmapLoader implements BitmapLoader {
 
     @Override
     public void load(@Nullable Object model, @NonNull ImageView imageView) {
+        Glide.clear(imageView);
         requestManager.load(model)
                 .asBitmap()
                 .skipMemoryCache(true)
