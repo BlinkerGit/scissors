@@ -17,11 +17,11 @@ package com.lyft.android.scissors;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 
 /**
@@ -42,12 +42,23 @@ public class GlideBitmapLoader implements BitmapLoader {
 
     @Override
     public void load(@Nullable Object model, @NonNull ImageView imageView) {
-        Glide.clear(imageView);
-        requestManager.load(model)
+        load(model, imageView, 1f);
+    }
+
+    private void load(@Nullable Object model, @NonNull ImageView imageView, float scale) {
+        try {
+            requestManager.load(model)
                 .asBitmap()
-                .skipMemoryCache(true)
-                .diskCacheStrategy(DiskCacheStrategy.RESULT)
+                // Allow OOMs so we can catch them
+                .imageDecoder(new OOMReadyStreamBitmapDecoder(imageView.getContext()))
+                .thumbnail(scale)
+                .transform(transformation)
                 .into(imageView);
+        } catch (OutOfMemoryError e) {
+            Log.e("GlideBitmapLoader", "OOM occurred, scaling back image to: " + (scale * 100) + "%");
+            // If too big, load at 90% of requested size until it works
+            load(model, imageView, scale * .9f);
+        }
     }
 
     public static BitmapLoader createUsing(@NonNull CropView cropView) {
