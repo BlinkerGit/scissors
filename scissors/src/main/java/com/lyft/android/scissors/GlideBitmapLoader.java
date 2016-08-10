@@ -54,8 +54,8 @@ public class GlideBitmapLoader implements BitmapLoader {
                 .thumbnail(scale)
                 .transform(transformation)
                 .into(imageView);
-        } catch (OutOfMemoryError e) {
-            Log.e("GlideBitmapLoader", "OOM occurred, scaling back image to: " + (scale * 100) + "%");
+        } catch (Exception e) {
+            Log.e("GlideBitmapLoader", "Exception occurred, scaling back image to: " + (scale * 100) + "%");
             // If too big, load at 90% of requested size until it works
             load(model, imageView, scale * .9f);
         }
