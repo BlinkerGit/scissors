@@ -45,8 +45,9 @@ public class GlideBitmapLoader implements BitmapLoader {
         Glide.clear(imageView);
         requestManager.load(model)
                 .asBitmap()
+                .centerCrop()
                 .skipMemoryCache(true)
-                .diskCacheStrategy(DiskCacheStrategy.SOURCE)
+                .diskCacheStrategy(DiskCacheStrategy.RESULT)
                 .transform(transformation)
                 .into(imageView);
     }
