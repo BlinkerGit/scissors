@@ -261,7 +261,6 @@ public class CropView extends ImageView {
 
         canvas.drawBitmap(src, transform, bitmapPaint);
         src.recycle();
-        bitmap.recycle();
 
         return dst;
     }
