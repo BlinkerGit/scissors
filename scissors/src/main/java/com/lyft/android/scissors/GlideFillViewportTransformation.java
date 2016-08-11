@@ -17,10 +17,9 @@ package com.lyft.android.scissors;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
-
-import java.lang.ref.WeakReference;
 
 class GlideFillViewportTransformation extends BitmapTransformation {
 
@@ -43,13 +42,11 @@ class GlideFillViewportTransformation extends BitmapTransformation {
         int targetWidth = target.width();
         int targetHeight = target.height();
 
-        WeakReference<Bitmap> bitmap = new WeakReference<>(Bitmap.createScaledBitmap(
+        return Bitmap.createScaledBitmap(
                 source,
                 targetWidth,
                 targetHeight,
-                true));
-        source.recycle();
-        return bitmap.get();
+                true);
     }
 
     @Override
