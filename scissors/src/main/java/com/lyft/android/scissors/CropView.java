@@ -15,9 +15,6 @@
  */
 package com.lyft.android.scissors;
 
-import com.lyft.android.scissors.CropViewExtensions.CropRequest;
-import com.lyft.android.scissors.CropViewExtensions.LoadRequest;
-
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
@@ -36,6 +33,9 @@ import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.widget.ImageView;
+
+import com.lyft.android.scissors.CropViewExtensions.CropRequest;
+import com.lyft.android.scissors.CropViewExtensions.LoadRequest;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -260,6 +260,8 @@ public class CropView extends ImageView {
         transform.postScale(outputScale, outputScale);
 
         canvas.drawBitmap(src, transform, bitmapPaint);
+        src.recycle();
+        bitmap.recycle();
 
         return dst;
     }

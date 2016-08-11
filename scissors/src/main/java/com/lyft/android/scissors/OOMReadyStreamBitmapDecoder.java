@@ -13,6 +13,10 @@ public class OOMReadyStreamBitmapDecoder extends StreamBitmapDecoder {
     super(context);
   } // or any other ctor you want from super
   @Override public Resource<Bitmap> decode(InputStream source, int width, int height) {
-    return super.decode(source, width, height);
+    try {
+      return super.decode(source, width, height);
+    } catch (OutOfMemoryError e) {
+      throw new RuntimeException(e);
+    }
   }
 }

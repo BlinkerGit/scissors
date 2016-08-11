@@ -20,6 +20,8 @@ import android.graphics.Rect;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 
+import java.lang.ref.WeakReference;
+
 class GlideFillViewportTransformation extends BitmapTransformation {
 
     public final int viewportWidth;
@@ -41,11 +43,13 @@ class GlideFillViewportTransformation extends BitmapTransformation {
         int targetWidth = target.width();
         int targetHeight = target.height();
 
-        return Bitmap.createScaledBitmap(
+        WeakReference<Bitmap> bitmap = new WeakReference<>(Bitmap.createScaledBitmap(
                 source,
                 targetWidth,
                 targetHeight,
-                true);
+                true));
+        source.recycle();
+        return bitmap.get();
     }
 
     @Override
