@@ -55,10 +55,12 @@ class CropViewExtensions {
 
         private final CropView cropView;
         private BitmapLoader bitmapLoader;
+        private CropView.OnImageLoadListener listener;
 
-        LoadRequest(CropView cropView) {
+        LoadRequest(CropView cropView, CropView.OnImageLoadListener listener) {
             Utils.checkNotNull(cropView, "cropView == null");
             this.cropView = cropView;
+            this.listener = listener;
         }
 
         /**
@@ -88,7 +90,7 @@ class CropViewExtensions {
 
         void performLoad(Object model) {
             if (bitmapLoader == null) {
-                bitmapLoader = resolveBitmapLoader(cropView);
+                bitmapLoader = resolveBitmapLoader(cropView, listener);
             }
             bitmapLoader.load(model, cropView);
         }
@@ -232,12 +234,12 @@ class CropViewExtensions {
     final static boolean HAS_GLIDE = canHasClass("com.bumptech.glide.Glide");
     final static boolean HAS_UIL = canHasClass("com.nostra13.universalimageloader.core.ImageLoader");
 
-    static BitmapLoader resolveBitmapLoader(CropView cropView) {
+    static BitmapLoader resolveBitmapLoader(CropView cropView, CropView.OnImageLoadListener listener) {
         if (HAS_PICASSO) {
             return PicassoBitmapLoader.createUsing(cropView);
         }
         if (HAS_GLIDE) {
-            return GlideBitmapLoader.createUsing(cropView);
+            return GlideBitmapLoader.createUsing(cropView, listener);
         }
         if (HAS_UIL) {
             return UILBitmapLoader.createUsing(cropView);

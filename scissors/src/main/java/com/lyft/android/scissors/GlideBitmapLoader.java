@@ -15,6 +15,7 @@
  */
 package com.lyft.android.scissors;
 
+import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -25,6 +26,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
+import com.bumptech.glide.request.animation.GlideAnimation;
 import com.bumptech.glide.request.target.BitmapImageViewTarget;
 
 /**
@@ -37,10 +39,12 @@ public class GlideBitmapLoader implements BitmapLoader {
 
     private final RequestManager requestManager;
     private final GlideFillViewportTransformation transformation;
+    private final CropView.OnImageLoadListener listener;
 
-    public GlideBitmapLoader(@NonNull RequestManager requestManager, @NonNull GlideFillViewportTransformation transformation) {
+    public GlideBitmapLoader(@NonNull RequestManager requestManager, @NonNull GlideFillViewportTransformation transformation, @Nullable CropView.OnImageLoadListener listener) {
         this.requestManager = requestManager;
         this.transformation = transformation;
+        this.listener = listener;
     }
 
     @Override
@@ -65,21 +69,32 @@ public class GlideBitmapLoader implements BitmapLoader {
                             load(model, imageView, scale * .9f);
                         } else {
                             Log.e("GlideBitmapLoader", "Loading image failed permanently. Please free up memory and try again.");
+                            if (listener != null) {
+                                listener.onLoadFail();
+                            }
                             throw new RuntimeException(e);
                         }
                     }
                     super.onLoadFailed(e, errorDrawable);
                 }
+
+                @Override
+                public void onResourceReady(Bitmap resource, GlideAnimation<? super Bitmap> glideAnimation) {
+                    super.onResourceReady(resource, glideAnimation);
+                    if (listener != null) {
+                        listener.onLoadSuccess();
+                    }
+                }
             });
     }
 
-    public static BitmapLoader createUsing(@NonNull CropView cropView) {
-        return createUsing(cropView, Glide.with(cropView.getContext()), Glide.get(cropView.getContext()).getBitmapPool());
+    public static BitmapLoader createUsing(@NonNull CropView cropView, CropView.OnImageLoadListener listener) {
+        return createUsing(cropView, Glide.with(cropView.getContext()), Glide.get(cropView.getContext()).getBitmapPool(), listener);
     }
 
     public static BitmapLoader createUsing(@NonNull CropView cropView, @NonNull RequestManager requestManager,
-            @NonNull BitmapPool bitmapPool) {
+                                           @NonNull BitmapPool bitmapPool, @Nullable CropView.OnImageLoadListener listener) {
         return new GlideBitmapLoader(requestManager,
-                GlideFillViewportTransformation.createUsing(bitmapPool, cropView.getViewportWidth(), cropView.getViewportHeight()));
+                GlideFillViewportTransformation.createUsing(bitmapPool, cropView.getViewportWidth(), cropView.getViewportHeight()), listener);
     }
 }

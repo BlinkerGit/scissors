@@ -55,6 +55,7 @@ public class CropView extends ImageView {
     private Bitmap bitmap;
     private Matrix transform = new Matrix();
     private Extensions extensions;
+    private OnImageLoadListener listener;
 
     public CropView(Context context) {
         super(context);
@@ -303,9 +304,13 @@ public class CropView extends ImageView {
      */
     public Extensions extensions() {
         if (extensions == null) {
-            extensions = new Extensions(this);
+            extensions = new Extensions(this, listener);
         }
         return extensions;
+    }
+
+    public void setOnImageLoadListener(OnImageLoadListener listener) {
+        this.listener = listener;
     }
 
     /**
@@ -314,9 +319,11 @@ public class CropView extends ImageView {
     public static class Extensions {
 
         private final CropView cropView;
+        private final OnImageLoadListener listener;
 
-        Extensions(CropView cropView) {
+        Extensions(CropView cropView, OnImageLoadListener listener) {
             this.cropView = cropView;
+            this.listener = listener;
         }
 
         /**
@@ -327,7 +334,7 @@ public class CropView extends ImageView {
          * @see GlideBitmapLoader
          */
         public void load(@Nullable Object model) {
-            new LoadRequest(cropView)
+            new LoadRequest(cropView, listener)
                     .load(model);
         }
 
@@ -339,7 +346,7 @@ public class CropView extends ImageView {
          * @see GlideBitmapLoader
          */
         public LoadRequest using(@Nullable BitmapLoader bitmapLoader) {
-            return new LoadRequest(cropView).using(bitmapLoader);
+            return new LoadRequest(cropView, listener).using(bitmapLoader);
         }
 
         /**
@@ -368,5 +375,10 @@ public class CropView extends ImageView {
         public void pickUsing(@NonNull Fragment fragment, int requestCode) {
             CropViewExtensions.pickUsing(fragment, requestCode);
         }
+    }
+
+    public interface OnImageLoadListener {
+        void onLoadSuccess();
+        void onLoadFail();
     }
 }
