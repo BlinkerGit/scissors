@@ -91,7 +91,9 @@ public class CropView extends ImageView {
         transform.reset();
         touchManager.applyPositioningAndScale(transform);
 
-        canvas.drawBitmap(bitmap, transform, bitmapPaint);
+        if (!bitmap.isRecycled()) {
+            canvas.drawBitmap(bitmap, transform, bitmapPaint);
+        }
     }
 
     private void drawOverlay(Canvas canvas) {
