@@ -45,341 +45,344 @@ import java.io.OutputStream;
  */
 public class CropView extends ImageView {
 
-    private static final int MAX_TOUCH_POINTS = 2;
-    private CropViewConfig config;
-    private TouchManager touchManager;
+  private static final int MAX_TOUCH_POINTS = 2;
+  private CropViewConfig config;
+  private TouchManager touchManager;
 
-    private Paint viewportPaint = new Paint();
-    private Paint bitmapPaint = new Paint();
+  private Paint viewportPaint = new Paint();
+  private Paint bitmapPaint = new Paint();
 
-    private Bitmap bitmap;
-    private Matrix transform = new Matrix();
-    private Extensions extensions;
-    private OnImageLoadListener listener;
+  private Bitmap bitmap;
+  private Matrix transform = new Matrix();
+  private Extensions extensions;
+  private OnImageLoadListener listener;
 
-    public CropView(Context context) {
-        super(context);
-        initCropView(context, null);
+  public CropView(Context context) {
+    super(context);
+    initCropView(context, null);
+  }
+
+  public CropView(Context context, AttributeSet attrs) {
+    super(context, attrs);
+
+    initCropView(context, attrs);
+  }
+
+  void initCropView(Context context, AttributeSet attrs) {
+    config = CropViewConfig.from(context, attrs);
+    touchManager = new TouchManager(MAX_TOUCH_POINTS, config);
+    bitmapPaint.setFilterBitmap(true);
+    viewportPaint.setColor(config.getViewportOverlayColor());
+  }
+
+  @Override
+  protected void onDraw(Canvas canvas) {
+    super.onDraw(canvas);
+
+    if (bitmap == null) {
+      return;
     }
 
-    public CropView(Context context, AttributeSet attrs) {
-        super(context, attrs);
+    drawBitmap(canvas);
+    drawOverlay(canvas);
+  }
 
-        initCropView(context, attrs);
+  private void drawBitmap(Canvas canvas) {
+    transform.reset();
+    touchManager.applyPositioningAndScale(transform);
+
+    if (!bitmap.isRecycled()) {
+      canvas.drawBitmap(bitmap, transform, bitmapPaint);
+    }
+  }
+
+  private void drawOverlay(Canvas canvas) {
+    final int viewportWidth = touchManager.getViewportWidth();
+    final int viewportHeight = touchManager.getViewportHeight();
+    final int left = (getWidth() - viewportWidth) / 2;
+    final int top = (getHeight() - viewportHeight) / 2;
+
+    canvas.drawRect(0, top, left, getHeight() - top, viewportPaint);
+    canvas.drawRect(0, 0, getWidth(), top, viewportPaint);
+    canvas.drawRect(getWidth() - left, top, getWidth(), getHeight() - top, viewportPaint);
+    canvas.drawRect(0, getHeight() - top, getWidth(), getHeight(), viewportPaint);
+  }
+
+  @Override
+  protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+    super.onSizeChanged(w, h, oldw, oldh);
+    resizeTouchManager();
+  }
+
+  /**
+   * Returns the native aspect ratio of the image.
+   *
+   * @return The native aspect ratio of the image.
+   */
+  public float getImageRatio() {
+    Bitmap bitmap = getImageBitmap();
+    return bitmap != null ? (float) bitmap.getWidth() / (float) bitmap.getHeight() : 0f;
+  }
+
+  /**
+   * Returns the aspect ratio of the viewport and crop rect.
+   *
+   * @return The current viewport aspect ratio.
+   */
+  public float getViewportRatio() {
+    return touchManager.getAspectRatio();
+  }
+
+  /**
+   * Sets the aspect ratio of the viewport and crop rect.  Defaults to
+   * the native aspect ratio if <code>ratio == 0</code>.
+   *
+   * @param ratio The new aspect ratio of the viewport.
+   */
+  public void setViewportRatio(float ratio) {
+    if (Float.compare(ratio, 0) == 0) {
+      ratio = getImageRatio();
+    }
+    touchManager.setAspectRatio(ratio);
+    resizeTouchManager();
+    invalidate();
+  }
+
+  @Override
+  public void setImageResource(@DrawableRes int resId) {
+    final Bitmap bitmap = resId > 0
+        ? BitmapFactory.decodeResource(getResources(), resId)
+        : null;
+    setImageBitmap(bitmap);
+  }
+
+  @Override
+  public void setImageDrawable(@Nullable Drawable drawable) {
+    final Bitmap bitmap;
+    if (drawable instanceof BitmapDrawable) {
+      BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
+      bitmap = bitmapDrawable.getBitmap();
+    } else if (drawable != null) {
+      bitmap = Utils.asBitmap(drawable, getWidth(), getHeight());
+    } else {
+      bitmap = null;
     }
 
-    void initCropView(Context context, AttributeSet attrs) {
-        config = CropViewConfig.from(context, attrs);
-        touchManager = new TouchManager(MAX_TOUCH_POINTS, config);
-        bitmapPaint.setFilterBitmap(true);
-        viewportPaint.setColor(config.getViewportOverlayColor());
+    setImageBitmap(bitmap);
+  }
+
+  @Override
+  public void setImageURI(@Nullable Uri uri) {
+    extensions().load(uri);
+  }
+
+  @Override
+  public void setImageBitmap(@Nullable Bitmap bitmap) {
+    this.bitmap = bitmap;
+    resetTouchManager();
+    resizeTouchManager();
+    invalidate();
+  }
+
+  /**
+   * @return Current working Bitmap or <code>null</code> if none has been set yet.
+   */
+  @Nullable
+  public Bitmap getImageBitmap() {
+    return bitmap;
+  }
+
+  private void resetTouchManager() {
+    touchManager = new TouchManager(MAX_TOUCH_POINTS, config);
+  }
+
+  private void resizeTouchManager() {
+    final boolean invalidBitmap = bitmap == null;
+    final int bitmapWidth = invalidBitmap ? 0 : bitmap.getWidth();
+    final int bitmapHeight = invalidBitmap ? 0 : bitmap.getHeight();
+    touchManager.resetFor(bitmapWidth, bitmapHeight, getWidth(), getHeight());
+  }
+
+  @Override
+  public boolean dispatchTouchEvent(MotionEvent event) {
+    super.dispatchTouchEvent(event);
+
+    if (isEnabled()) {
+      touchManager.onEvent(event);
+      invalidate();
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Performs synchronous image cropping based on configuration.
+   *
+   * @return A {@link Bitmap} cropped based on viewport and user panning and zooming or <code>null</code> if no {@link Bitmap} has been
+   * provided.
+   */
+  @Nullable
+  public Bitmap crop() {
+    return crop(1.0f, bitmap, 0, 0);
+  }
+
+  /**
+   * Performs synchronous image cropping based on configuration.
+   *
+   * @param outputScale multiplied with viewport size for calculating bitmap size.
+   * @param src         Bitmap for cropping
+   * @param offsetX     int value offsetting final cropped image in x direction
+   * @param offsetY     int value offsetting final cropped image in y direction
+   * @return A {@link Bitmap} cropped based on viewport and user panning and zooming or <code>null</code> if no {@link Bitmap} has been
+   * provided.
+   */
+  @Nullable
+  public Bitmap crop(float outputScale, Bitmap src, int offsetX, int offsetY) {
+    if (src == null || bitmap == null) {
+      return null;
     }
 
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
+    final Bitmap.Config srcConfig = src.getConfig();
+    final Bitmap.Config config = srcConfig == null ? Bitmap.Config.ARGB_8888 : srcConfig;
+    final int viewportHeight = touchManager.getViewportHeight();
+    final int viewportWidth = touchManager.getViewportWidth();
 
-        if (bitmap == null) {
-            return;
-        }
+    final Bitmap dst = Bitmap.createBitmap((int) (viewportWidth * outputScale), (int) (viewportHeight * outputScale), config);
 
-        drawBitmap(canvas);
-        drawOverlay(canvas);
+    Canvas canvas = new Canvas(dst);
+    final int left = ((getRight() - viewportWidth) / 2);
+    final int top = ((getBottom() - viewportHeight) / 2);
+    canvas.translate((-left * outputScale) - offsetX, (-top * outputScale) - offsetY);
+
+    Matrix transform = new Matrix();
+
+    final float scaleX = bitmap.getWidth() / (float) src.getWidth();
+    final float scaleY = bitmap.getHeight() / (float) src.getHeight();
+    transform.postScale(scaleX, scaleY);
+
+    touchManager.applyPositioningAndScale(transform);
+    transform.postScale(outputScale, outputScale);
+
+    canvas.drawBitmap(src, transform, bitmapPaint);
+
+    return dst;
+  }
+
+  float calculateOutputScale(int width, int height) {
+    final float viewportHeight = touchManager.getViewportHeight();
+    final float viewportWidth = touchManager.getViewportWidth();
+
+    if (width / (float) height > viewportWidth / viewportHeight) {
+      return height / viewportHeight; //fit to height
+    } else {
+      return width / viewportWidth; //fit to width
     }
+  }
 
-    private void drawBitmap(Canvas canvas) {
-        transform.reset();
-        touchManager.applyPositioningAndScale(transform);
+  /**
+   * Obtain current viewport width.
+   *
+   * @return Current viewport width.
+   * <p>Note: It might be 0 if layout pass has not been completed.</p>
+   */
+  public int getViewportWidth() {
+    return touchManager.getViewportWidth();
+  }
 
-        if (!bitmap.isRecycled()) {
-            canvas.drawBitmap(bitmap, transform, bitmapPaint);
-        }
+  /**
+   * Obtain current viewport height.
+   *
+   * @return Current viewport height.
+   * <p>Note: It might be 0 if layout pass has not been completed.</p>
+   */
+  public int getViewportHeight() {
+    return touchManager.getViewportHeight();
+  }
+
+  /**
+   * Offers common utility extensions.
+   *
+   * @return Extensions object used to perform chained calls.
+   */
+  public Extensions extensions() {
+    if (extensions == null) {
+      extensions = new Extensions(this, listener);
     }
+    return extensions;
+  }
 
-    private void drawOverlay(Canvas canvas) {
-        final int viewportWidth = touchManager.getViewportWidth();
-        final int viewportHeight = touchManager.getViewportHeight();
-        final int left = (getWidth() - viewportWidth) / 2;
-        final int top = (getHeight() - viewportHeight) / 2;
+  public void setOnImageLoadListener(OnImageLoadListener listener) {
+    this.listener = listener;
+  }
 
-        canvas.drawRect(0, top, left, getHeight() - top, viewportPaint);
-        canvas.drawRect(0, 0, getWidth(), top, viewportPaint);
-        canvas.drawRect(getWidth() - left, top, getWidth(), getHeight() - top, viewportPaint);
-        canvas.drawRect(0, getHeight() - top, getWidth(), getHeight(), viewportPaint);
-    }
+  /**
+   * Optional extensions to perform common actions involving a {@link CropView}
+   */
+  public static class Extensions {
 
-    @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
-        resizeTouchManager();
+    private final CropView cropView;
+    private final OnImageLoadListener listener;
+
+    Extensions(CropView cropView, OnImageLoadListener listener) {
+      this.cropView = cropView;
+      this.listener = listener;
     }
 
     /**
-     * Returns the native aspect ratio of the image.
+     * Load a {@link Bitmap} using an automatically resolved {@link BitmapLoader} which will attempt to scale image to fill view.
      *
-     * @return The native aspect ratio of the image.
+     * @param model Model used by {@link BitmapLoader} to load desired {@link Bitmap}
+     * @see PicassoBitmapLoader
+     * @see GlideBitmapLoader
      */
-    public float getImageRatio() {
-        Bitmap bitmap = getImageBitmap();
-        return bitmap != null ? (float) bitmap.getWidth() / (float) bitmap.getHeight() : 0f;
+    public void load(@Nullable Object model) {
+      new LoadRequest(cropView, listener)
+          .load(model);
     }
 
     /**
-     * Returns the aspect ratio of the viewport and crop rect.
+     * Load a {@link Bitmap} using given {@link BitmapLoader}, you must call {@link LoadRequest#load(Object)} afterwards.
      *
-     * @return The current viewport aspect ratio.
+     * @param bitmapLoader {@link BitmapLoader} used to load desired {@link Bitmap}
+     * @see PicassoBitmapLoader
+     * @see GlideBitmapLoader
      */
-    public float getViewportRatio() {
-        return touchManager.getAspectRatio();
+    public LoadRequest using(@Nullable BitmapLoader bitmapLoader) {
+      return new LoadRequest(cropView, listener).using(bitmapLoader);
     }
 
     /**
-     * Sets the aspect ratio of the viewport and crop rect.  Defaults to
-     * the native aspect ratio if <code>ratio == 0</code>.
+     * Perform an asynchronous crop request.
      *
-     * @param ratio The new aspect ratio of the viewport.
+     * @return {@link CropRequest} used to chain a configure cropping request, you must call either one of:
+     * <ul>
+     * <li>{@link CropRequest#into(File)}</li>
+     * <li>{@link CropRequest#into(OutputStream, boolean)}</li>
+     * </ul>
      */
-    public void setViewportRatio(float ratio) {
-        if (Float.compare(ratio, 0) == 0) {
-            ratio = getImageRatio();
-        }
-        touchManager.setAspectRatio(ratio);
-        resizeTouchManager();
-        invalidate();
-    }
-
-    @Override
-    public void setImageResource(@DrawableRes int resId) {
-        final Bitmap bitmap = resId > 0
-                ? BitmapFactory.decodeResource(getResources(), resId)
-                : null;
-        setImageBitmap(bitmap);
-    }
-
-    @Override
-    public void setImageDrawable(@Nullable Drawable drawable) {
-        final Bitmap bitmap;
-        if (drawable instanceof BitmapDrawable) {
-            BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
-            bitmap = bitmapDrawable.getBitmap();
-        } else if (drawable != null) {
-            bitmap = Utils.asBitmap(drawable, getWidth(), getHeight());
-        } else {
-            bitmap = null;
-        }
-
-        setImageBitmap(bitmap);
-    }
-
-    @Override
-    public void setImageURI(@Nullable Uri uri) {
-        extensions().load(uri);
-    }
-
-    @Override
-    public void setImageBitmap(@Nullable Bitmap bitmap) {
-        this.bitmap = bitmap;
-        resetTouchManager();
-        resizeTouchManager();
-        invalidate();
+    public CropRequest crop() {
+      return new CropRequest(cropView);
     }
 
     /**
-     * @return Current working Bitmap or <code>null</code> if none has been set yet.
+     * Perform a pick image request using {@link Activity#startActivityForResult(Intent, int)}.
      */
-    @Nullable
-    public Bitmap getImageBitmap() {
-        return bitmap;
-    }
-
-    private void resetTouchManager() {
-        touchManager = new TouchManager(MAX_TOUCH_POINTS, config);
-    }
-
-    private void resizeTouchManager() {
-        final boolean invalidBitmap = bitmap == null;
-        final int bitmapWidth = invalidBitmap ? 0 : bitmap.getWidth();
-        final int bitmapHeight = invalidBitmap ? 0 : bitmap.getHeight();
-        touchManager.resetFor(bitmapWidth, bitmapHeight, getWidth(), getHeight());
-    }
-
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent event) {
-        super.dispatchTouchEvent(event);
-
-        if( isEnabled() ) {
-            touchManager.onEvent(event);
-            invalidate();
-            return true;
-        } else {
-            return false;
-        }
+    public void pickUsing(@NonNull Activity activity, int requestCode) {
+      CropViewExtensions.pickUsing(activity, requestCode);
     }
 
     /**
-     * Performs synchronous image cropping based on configuration.
-     *
-     * @return A {@link Bitmap} cropped based on viewport and user panning and zooming or <code>null</code> if no {@link Bitmap} has been
-     * provided.
+     * Perform a pick image request using {@link Fragment#startActivityForResult(Intent, int)}.
      */
-    @Nullable
-    public Bitmap crop() {
-        return crop(1.0f, bitmap);
+    public void pickUsing(@NonNull Fragment fragment, int requestCode) {
+      CropViewExtensions.pickUsing(fragment, requestCode);
     }
+  }
 
-    /**
-     * Performs synchronous image cropping based on configuration.
-     *
-     * @param outputScale multiplied with viewport size for calculating bitmap size.
-     * @param src Bitmap for cropping
-     * @return A {@link Bitmap} cropped based on viewport and user panning and zooming or <code>null</code> if no {@link Bitmap} has been
-     * provided.
-     */
-    @Nullable
-    public Bitmap crop(float outputScale, Bitmap src) {
-        if (src == null || bitmap == null) {
-            return null;
-        }
+  public interface OnImageLoadListener {
+    void onLoadSuccess();
 
-        final Bitmap.Config srcConfig = src.getConfig();
-        final Bitmap.Config config = srcConfig == null ? Bitmap.Config.ARGB_8888 : srcConfig;
-        final int viewportHeight = touchManager.getViewportHeight();
-        final int viewportWidth = touchManager.getViewportWidth();
-
-        final Bitmap dst = Bitmap.createBitmap((int)(viewportWidth * outputScale), (int)(viewportHeight * outputScale), config);
-
-        Canvas canvas = new Canvas(dst);
-        final int left = (getRight() - viewportWidth) / 2;
-        final int top = (getBottom() - viewportHeight) / 2;
-        canvas.translate(-left * outputScale, -top * outputScale);
-
-        Matrix transform = new Matrix();
-
-        final float scaleX = bitmap.getWidth() / (float)src.getWidth();
-        final float scaleY = bitmap.getHeight() / (float)src.getHeight();
-        transform.postScale(scaleX, scaleY);
-
-        touchManager.applyPositioningAndScale(transform);
-        transform.postScale(outputScale, outputScale);
-
-        canvas.drawBitmap(src, transform, bitmapPaint);
-
-        return dst;
-    }
-
-    float calculateOutputScale(int width, int height) {
-        final float viewportHeight = touchManager.getViewportHeight();
-        final float viewportWidth = touchManager.getViewportWidth();
-
-        if (width / (float)height > viewportWidth / viewportHeight) {
-            return height / viewportHeight; //fit to height
-        } else {
-            return  width / viewportWidth; //fit to width
-        }
-    }
-
-    /**
-     * Obtain current viewport width.
-     *
-     * @return Current viewport width.
-     * <p>Note: It might be 0 if layout pass has not been completed.</p>
-     */
-    public int getViewportWidth() {
-        return touchManager.getViewportWidth();
-    }
-
-    /**
-     * Obtain current viewport height.
-     *
-     * @return Current viewport height.
-     * <p>Note: It might be 0 if layout pass has not been completed.</p>
-     */
-    public int getViewportHeight() {
-        return touchManager.getViewportHeight();
-    }
-
-    /**
-     * Offers common utility extensions.
-     *
-     * @return Extensions object used to perform chained calls.
-     */
-    public Extensions extensions() {
-        if (extensions == null) {
-            extensions = new Extensions(this, listener);
-        }
-        return extensions;
-    }
-
-    public void setOnImageLoadListener(OnImageLoadListener listener) {
-        this.listener = listener;
-    }
-
-    /**
-     * Optional extensions to perform common actions involving a {@link CropView}
-     */
-    public static class Extensions {
-
-        private final CropView cropView;
-        private final OnImageLoadListener listener;
-
-        Extensions(CropView cropView, OnImageLoadListener listener) {
-            this.cropView = cropView;
-            this.listener = listener;
-        }
-
-        /**
-         * Load a {@link Bitmap} using an automatically resolved {@link BitmapLoader} which will attempt to scale image to fill view.
-         *
-         * @param model Model used by {@link BitmapLoader} to load desired {@link Bitmap}
-         * @see PicassoBitmapLoader
-         * @see GlideBitmapLoader
-         */
-        public void load(@Nullable Object model) {
-            new LoadRequest(cropView, listener)
-                    .load(model);
-        }
-
-        /**
-         * Load a {@link Bitmap} using given {@link BitmapLoader}, you must call {@link LoadRequest#load(Object)} afterwards.
-         *
-         * @param bitmapLoader {@link BitmapLoader} used to load desired {@link Bitmap}
-         * @see PicassoBitmapLoader
-         * @see GlideBitmapLoader
-         */
-        public LoadRequest using(@Nullable BitmapLoader bitmapLoader) {
-            return new LoadRequest(cropView, listener).using(bitmapLoader);
-        }
-
-        /**
-         * Perform an asynchronous crop request.
-         *
-         * @return {@link CropRequest} used to chain a configure cropping request, you must call either one of:
-         * <ul>
-         * <li>{@link CropRequest#into(File)}</li>
-         * <li>{@link CropRequest#into(OutputStream, boolean)}</li>
-         * </ul>
-         */
-        public CropRequest crop() {
-            return new CropRequest(cropView);
-        }
-
-        /**
-         * Perform a pick image request using {@link Activity#startActivityForResult(Intent, int)}.
-         */
-        public void pickUsing(@NonNull Activity activity, int requestCode) {
-            CropViewExtensions.pickUsing(activity, requestCode);
-        }
-
-        /**
-         * Perform a pick image request using {@link Fragment#startActivityForResult(Intent, int)}.
-         */
-        public void pickUsing(@NonNull Fragment fragment, int requestCode) {
-            CropViewExtensions.pickUsing(fragment, requestCode);
-        }
-    }
-
-    public interface OnImageLoadListener {
-        void onLoadSuccess();
-        void onLoadFail();
-    }
+    void onLoadFail();
+  }
 }

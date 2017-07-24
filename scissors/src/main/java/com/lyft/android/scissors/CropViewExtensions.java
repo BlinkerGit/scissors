@@ -30,246 +30,261 @@ import java.util.concurrent.Future;
 
 class CropViewExtensions {
 
-    static void pickUsing(Activity activity, int requestCode) {
-        activity.startActivityForResult(
-                createChooserIntent(),
-                requestCode);
+  static void pickUsing(Activity activity, int requestCode) {
+    activity.startActivityForResult(
+        createChooserIntent(),
+        requestCode);
+  }
+
+  static void pickUsing(Fragment fragment, int requestCode) {
+    fragment.startActivityForResult(
+        createChooserIntent(),
+        requestCode);
+  }
+
+  private static Intent createChooserIntent() {
+    Intent intent = new Intent();
+    intent.setType("image/*");
+    intent.setAction(Intent.ACTION_GET_CONTENT);
+    intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+    return Intent.createChooser(intent, null);
+  }
+
+  public static class LoadRequest {
+
+    private final CropView cropView;
+    private BitmapLoader bitmapLoader;
+    private CropView.OnImageLoadListener listener;
+
+    LoadRequest(CropView cropView, CropView.OnImageLoadListener listener) {
+      Utils.checkNotNull(cropView, "cropView == null");
+      this.cropView = cropView;
+      this.listener = listener;
     }
 
-    static void pickUsing(Fragment fragment, int requestCode) {
-        fragment.startActivityForResult(
-                createChooserIntent(),
-                requestCode);
+    /**
+     * Load a {@link Bitmap} using given {@link BitmapLoader}, you must call {@link LoadRequest#load(Object)} afterwards.
+     *
+     * @param bitmapLoader {@link BitmapLoader} to use
+     * @return current request for chaining, you should call {@link #load(Object)} afterwards.
+     */
+    public LoadRequest using(@Nullable BitmapLoader bitmapLoader) {
+      this.bitmapLoader = bitmapLoader;
+      return this;
     }
 
-    private static Intent createChooserIntent() {
-        Intent intent = new Intent();
-        intent.setType("image/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-
-        return Intent.createChooser(intent, null);
+    /**
+     * Load a {@link Bitmap} using a {@link BitmapLoader} into {@link CropView}
+     *
+     * @param model Model used by {@link BitmapLoader} to load desired {@link Bitmap}
+     */
+    public void load(@Nullable Object model) {
+      if (cropView.getWidth() == 0 && cropView.getHeight() == 0) {
+        // Defer load until layout pass
+        deferLoad(model);
+        return;
+      }
+      performLoad(model);
     }
 
-    public static class LoadRequest {
+    void performLoad(Object model) {
+      if (bitmapLoader == null) {
+        bitmapLoader = resolveBitmapLoader(cropView, listener);
+      }
+      bitmapLoader.load(model, cropView);
+    }
 
-        private final CropView cropView;
-        private BitmapLoader bitmapLoader;
-        private CropView.OnImageLoadListener listener;
-
-        LoadRequest(CropView cropView, CropView.OnImageLoadListener listener) {
-            Utils.checkNotNull(cropView, "cropView == null");
-            this.cropView = cropView;
-            this.listener = listener;
-        }
-
-        /**
-         * Load a {@link Bitmap} using given {@link BitmapLoader}, you must call {@link LoadRequest#load(Object)} afterwards.
-         *
-         * @param bitmapLoader {@link BitmapLoader} to use
-         * @return current request for chaining, you should call {@link #load(Object)} afterwards.
-         */
-        public LoadRequest using(@Nullable BitmapLoader bitmapLoader) {
-            this.bitmapLoader = bitmapLoader;
-            return this;
-        }
-
-        /**
-         * Load a {@link Bitmap} using a {@link BitmapLoader} into {@link CropView}
-         *
-         * @param model Model used by {@link BitmapLoader} to load desired {@link Bitmap}
-         */
-        public void load(@Nullable Object model) {
-            if (cropView.getWidth() == 0 && cropView.getHeight() == 0) {
-                // Defer load until layout pass
-                deferLoad(model);
-                return;
+    void deferLoad(final Object model) {
+      if (!cropView.getViewTreeObserver().isAlive()) {
+        return;
+      }
+      cropView.getViewTreeObserver().addOnGlobalLayoutListener(
+          new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+              if (cropView.getViewTreeObserver().isAlive()) {
+                //noinspection deprecation
+                cropView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+              }
+              performLoad(model);
             }
-            performLoad(model);
-        }
+          }
+      );
+    }
+  }
 
-        void performLoad(Object model) {
-            if (bitmapLoader == null) {
-                bitmapLoader = resolveBitmapLoader(cropView, listener);
-            }
-            bitmapLoader.load(model, cropView);
-        }
+  public static class CropRequest {
 
-        void deferLoad(final Object model) {
-            if (!cropView.getViewTreeObserver().isAlive()) {
-                return;
-            }
-            cropView.getViewTreeObserver().addOnGlobalLayoutListener(
-                    new ViewTreeObserver.OnGlobalLayoutListener() {
-                        @Override
-                        public void onGlobalLayout() {
-                            if (cropView.getViewTreeObserver().isAlive()) {
-                                //noinspection deprecation
-                                cropView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
-                            }
-                            performLoad(model);
-                        }
-                    }
-            );
-        }
+    private final CropView cropView;
+    private Bitmap.CompressFormat format = Bitmap.CompressFormat.JPEG;
+    private int quality = CropViewConfig.DEFAULT_IMAGE_QUALITY;
+    private int width;
+    private int height;
+    private boolean originalSize;
+    private Bitmap originalBitmap;
+    private int xOffset = 0;
+    private int yOffset = 0;
+
+    CropRequest(@NonNull CropView cropView) {
+      Utils.checkNotNull(cropView, "cropView == null");
+      this.cropView = cropView;
     }
 
-    public static class CropRequest {
-
-        private final CropView cropView;
-        private Bitmap.CompressFormat format = Bitmap.CompressFormat.JPEG;
-        private int quality = CropViewConfig.DEFAULT_IMAGE_QUALITY;
-        private int width;
-        private int height;
-        private boolean originalSize;
-        private Bitmap originalBitmap;
-
-        CropRequest(@NonNull CropView cropView) {
-            Utils.checkNotNull(cropView, "cropView == null");
-            this.cropView = cropView;
-        }
-
-        /**
-         * Compression format to use, defaults to {@link Bitmap.CompressFormat#JPEG}.
-         *
-         * @return current request for chaining.
-         */
-        public CropRequest format(@NonNull Bitmap.CompressFormat format) {
-            Utils.checkNotNull(format, "format == null");
-            this.format = format;
-            return this;
-        }
-
-        /**
-         * Compression quality to use (must be 0..100), defaults to {@value CropViewConfig#DEFAULT_IMAGE_QUALITY}.
-         *
-         * @return current request for chaining.
-         */
-        public CropRequest quality(int quality) {
-            Utils.checkArg(quality >= 0 && quality <= 100, "quality must be 0..100");
-            this.quality = quality;
-            return this;
-        }
-
-        /**
-         * Fit cropped bitmap to original size.
-         *
-         * @return current request for chaining.
-         */
-        public CropRequest originalSize() {
-            this.originalSize = true;
-            this.width = 0;
-            this.height = 0;
-            return this;
-        }
-
-        /**
-         * Size of cropped bitmap.
-         *
-         * @return current request for chaining.
-         */
-        public CropRequest outputSize(int width, int height) {
-            this.originalSize = false;
-            this.width = width;
-            this.height = height;
-            return this;
-        }
-
-        /**
-         * Bitmap of cropping target.
-         *
-         * @return current request for chaining.
-         */
-        public CropRequest sourceBitmap(Bitmap bitmap) {
-            originalBitmap = bitmap;
-            return this;
-        }
-
-        /**
-         * Asynchronously flush cropped bitmap into provided file, creating parent directory if required. This is performed in another
-         * thread.
-         *
-         * @param file Must have permissions to write, will be created if doesn't exist or overwrite if it does.
-         * @return {@link Future} used to cancel or wait for this request.
-         */
-        public Future<Void> into(@NonNull File file) {
-            return Utils.flushToFile(crop(), format, quality, file);
-        }
-
-        /**
-         * Asynchronously flush cropped bitmap into provided stream.
-         *
-         * @param outputStream Stream to write to
-         * @param closeWhenDone wetter or not to close provided stream once flushing is done
-         * @return {@link Future} used to cancel or wait for this request.
-         */
-        public Future<Void> into(@NonNull OutputStream outputStream, boolean closeWhenDone) {
-            return Utils.flushToStream(crop(), format, quality, outputStream, closeWhenDone);
-        }
-
-        private Bitmap crop() {
-            Bitmap src;
-            if (originalBitmap != null) {
-                src = originalBitmap;
-            } else {
-                src = cropView.getImageBitmap();
-            }
-
-            float outputScale = 1.0f;
-            if (width > 0 && height > 0) {
-                outputScale = cropView.calculateOutputScale(width, height);
-
-            } else {
-                if (originalSize) {
-                    if (src != null) {
-                        outputScale = cropView.calculateOutputScale(src.getWidth(), src.getHeight());
-                    }
-                }
-            }
-            return cropView.crop(outputScale, src);
-        }
+    /**
+     * Compression format to use, defaults to {@link Bitmap.CompressFormat#JPEG}.
+     *
+     * @return current request for chaining.
+     */
+    public CropRequest format(@NonNull Bitmap.CompressFormat format) {
+      Utils.checkNotNull(format, "format == null");
+      this.format = format;
+      return this;
     }
 
-    final static boolean HAS_PICASSO = canHasClass("com.squareup.picasso.Picasso");
-    final static boolean HAS_GLIDE = canHasClass("com.bumptech.glide.Glide");
-    final static boolean HAS_UIL = canHasClass("com.nostra13.universalimageloader.core.ImageLoader");
-
-    static BitmapLoader resolveBitmapLoader(CropView cropView, CropView.OnImageLoadListener listener) {
-        if (HAS_PICASSO) {
-            return PicassoBitmapLoader.createUsing(cropView);
-        }
-        if (HAS_GLIDE) {
-            return GlideBitmapLoader.createUsing(cropView, listener);
-        }
-        if (HAS_UIL) {
-            return UILBitmapLoader.createUsing(cropView);
-        }
-        throw new IllegalStateException("You must provide a BitmapLoader.");
+    /**
+     * Compression quality to use (must be 0..100), defaults to {@value CropViewConfig#DEFAULT_IMAGE_QUALITY}.
+     *
+     * @return current request for chaining.
+     */
+    public CropRequest quality(int quality) {
+      Utils.checkArg(quality >= 0 && quality <= 100, "quality must be 0..100");
+      this.quality = quality;
+      return this;
     }
 
-    static boolean canHasClass(String className) {
-        try {
-            Class.forName(className);
-            return true;
-        } catch (ClassNotFoundException e) {
-        }
-        return false;
+    /**
+     * Fit cropped bitmap to original size.
+     *
+     * @return current request for chaining.
+     */
+    public CropRequest originalSize() {
+      this.originalSize = true;
+      this.width = 0;
+      this.height = 0;
+      return this;
     }
 
-    static Rect computeTargetSize(int sourceWidth, int sourceHeight, int viewportWidth, int viewportHeight) {
-
-        if (sourceWidth == viewportWidth && sourceHeight == viewportHeight) {
-            return new Rect(0, 0, viewportWidth, viewportHeight); // Fail fast for when source matches exactly on viewport
-        }
-
-        float scale;
-        if (sourceWidth * viewportHeight > viewportWidth * sourceHeight) {
-            scale = (float) viewportHeight / (float) sourceHeight;
-        } else {
-            scale = (float) viewportWidth / (float) sourceWidth;
-        }
-        final int recommendedWidth = (int) ((sourceWidth * scale) + 0.5f);
-        final int recommendedHeight = (int) ((sourceHeight * scale) + 0.5f);
-        return new Rect(0, 0, recommendedWidth, recommendedHeight);
+    /**
+     * Size of cropped bitmap.
+     *
+     * @return current request for chaining.
+     */
+    public CropRequest outputSize(int width, int height) {
+      this.originalSize = false;
+      this.width = width;
+      this.height = height;
+      return this;
     }
+
+    /**
+     * Bitmap of cropping target.
+     *
+     * @return current request for chaining.
+     */
+    public CropRequest sourceBitmap(Bitmap bitmap) {
+      originalBitmap = bitmap;
+      return this;
+    }
+
+    /**
+     * Define an offset to crop from
+     *
+     * @param x the offset in the x direction
+     * @param y the offset in the y direction
+     * @return current request for chaining.
+     */
+    public CropRequest offset(int x, int y) {
+      xOffset = x;
+      yOffset = y;
+      return this;
+    }
+
+    /**
+     * Asynchronously flush cropped bitmap into provided file, creating parent directory if required. This is performed in another
+     * thread.
+     *
+     * @param file Must have permissions to write, will be created if doesn't exist or overwrite if it does.
+     * @return {@link Future} used to cancel or wait for this request.
+     */
+    public Future<Void> into(@NonNull File file) {
+      return Utils.flushToFile(crop(), format, quality, file);
+    }
+
+    /**
+     * Asynchronously flush cropped bitmap into provided stream.
+     *
+     * @param outputStream  Stream to write to
+     * @param closeWhenDone wetter or not to close provided stream once flushing is done
+     * @return {@link Future} used to cancel or wait for this request.
+     */
+    public Future<Void> into(@NonNull OutputStream outputStream, boolean closeWhenDone) {
+      return Utils.flushToStream(crop(), format, quality, outputStream, closeWhenDone);
+    }
+
+    private Bitmap crop() {
+      Bitmap src;
+      if (originalBitmap != null) {
+        src = originalBitmap;
+      } else {
+        src = cropView.getImageBitmap();
+      }
+
+      float outputScale = 1.0f;
+      if (width > 0 && height > 0) {
+        outputScale = cropView.calculateOutputScale(width, height);
+
+      } else {
+        if (originalSize) {
+          if (src != null) {
+            outputScale = cropView.calculateOutputScale(src.getWidth(), src.getHeight());
+          }
+        }
+      }
+      return cropView.crop(outputScale, src, xOffset, yOffset);
+    }
+  }
+
+  final static boolean HAS_PICASSO = canHasClass("com.squareup.picasso.Picasso");
+  final static boolean HAS_GLIDE = canHasClass("com.bumptech.glide.Glide");
+  final static boolean HAS_UIL = canHasClass("com.nostra13.universalimageloader.core.ImageLoader");
+
+  static BitmapLoader resolveBitmapLoader(CropView cropView, CropView.OnImageLoadListener listener) {
+    if (HAS_PICASSO) {
+      return PicassoBitmapLoader.createUsing(cropView);
+    }
+    if (HAS_GLIDE) {
+      return GlideBitmapLoader.createUsing(cropView, listener);
+    }
+    if (HAS_UIL) {
+      return UILBitmapLoader.createUsing(cropView);
+    }
+    throw new IllegalStateException("You must provide a BitmapLoader.");
+  }
+
+  static boolean canHasClass(String className) {
+    try {
+      Class.forName(className);
+      return true;
+    } catch (ClassNotFoundException e) {
+    }
+    return false;
+  }
+
+  static Rect computeTargetSize(int sourceWidth, int sourceHeight, int viewportWidth, int viewportHeight) {
+
+    if (sourceWidth == viewportWidth && sourceHeight == viewportHeight) {
+      return new Rect(0, 0, viewportWidth, viewportHeight); // Fail fast for when source matches exactly on viewport
+    }
+
+    float scale;
+    if (sourceWidth * viewportHeight > viewportWidth * sourceHeight) {
+      scale = (float) viewportHeight / (float) sourceHeight;
+    } else {
+      scale = (float) viewportWidth / (float) sourceWidth;
+    }
+    final int recommendedWidth = (int) ((sourceWidth * scale) + 0.5f);
+    final int recommendedHeight = (int) ((sourceHeight * scale) + 0.5f);
+    return new Rect(0, 0, recommendedWidth, recommendedHeight);
+  }
 }
