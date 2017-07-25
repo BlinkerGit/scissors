@@ -253,7 +253,7 @@ public class CropView extends ImageView {
     Canvas canvas = new Canvas(dst);
     final int left = ((getRight() - viewportWidth) / 2);
     final int top = ((getBottom() - viewportHeight) / 2);
-    canvas.translate((-left * outputScale) - offsetX, (-top * outputScale) - offsetY);
+    canvas.translate((-left - offsetX) * outputScale, (-top - offsetY) * outputScale);
 
     Matrix transform = new Matrix();
 
