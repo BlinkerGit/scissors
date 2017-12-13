@@ -97,6 +97,6 @@ public class GlideBitmapLoader implements BitmapLoader {
   public static BitmapLoader createUsing(@NonNull CropView cropView, @NonNull RequestManager requestManager,
                                          @NonNull BitmapPool bitmapPool, @Nullable CropView.OnImageLoadListener listener) {
     return new GlideBitmapLoader(requestManager,
-        GlideFillViewportTransformation.createUsing(bitmapPool, cropView.getViewportWidth(), cropView.getViewportHeight()), listener);
+        GlideFillViewportTransformation.createUsing(cropView.getViewportWidth(), cropView.getViewportHeight()), listener);
   }
 }

@@ -18,22 +18,20 @@ package com.lyft.android.scissors;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
-import com.bumptech.glide.util.Util;
 
-import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 
 class GlideFillViewportTransformation extends BitmapTransformation {
-  private static final String ID = "com.lyft.android.scissors.transformations.GlideFillViewportTransformation";
 
   public final int viewportWidth;
   public final int viewportHeight;
 
-  public GlideFillViewportTransformation(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
-    super(bitmapPool);
+  public GlideFillViewportTransformation(int viewportWidth, int viewportHeight) {
+    super();
     this.viewportWidth = viewportWidth;
     this.viewportHeight = viewportHeight;
   }
@@ -43,6 +41,7 @@ class GlideFillViewportTransformation extends BitmapTransformation {
     int sourceWidth = source.getWidth();
     int sourceHeight = source.getHeight();
 
+    Log.d("GlideTransformation", "SourceWidth: " + sourceWidth + "\nSourceHeight: " + sourceHeight + "\nOutWidth: " + outWidth + "\nOutHeight: " + outHeight);
     Rect target = CropViewExtensions.computeTargetSize(sourceWidth, sourceHeight, viewportWidth, viewportHeight);
 
     int targetWidth = target.width();
@@ -55,26 +54,11 @@ class GlideFillViewportTransformation extends BitmapTransformation {
         true);
   }
 
-  public static GlideFillViewportTransformation createUsing(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
-    return new GlideFillViewportTransformation(bitmapPool, viewportWidth, viewportHeight);
-  }
-
-  @Override
-  public int hashCode() {
-    return Util.hashCode(ID.hashCode(),
-        Util.hashCode(
-            Util.hashCode(viewportWidth),
-            Util.hashCode(viewportHeight))
-    );
+  public static GlideFillViewportTransformation createUsing(int viewportWidth, int viewportHeight) {
+    return new GlideFillViewportTransformation(viewportWidth, viewportHeight);
   }
 
   @Override
   public void updateDiskCacheKey(MessageDigest messageDigest) {
-    messageDigest.update(ID.getBytes());
-
-    byte[] viewPortWidthData = ByteBuffer.allocate(4).putInt(viewportWidth).array();
-    byte[] viewPortHeightData = ByteBuffer.allocate(4).putInt(viewportHeight).array();
-    messageDigest.update(viewPortWidthData);
-    messageDigest.update(viewPortHeightData);
   }
 }
