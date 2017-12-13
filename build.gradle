@@ -1,29 +1,29 @@
 buildscript {
     repositories {
         mavenCentral()
+        google()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.3'
+        classpath 'com.android.tools.build:gradle:3.0.1'
     }
 }
 
 allprojects {
     repositories {
         mavenCentral()
+        google()
     }
 }
 
 ext {
-    minSdkVersion = 14
-    compileSdkVersion = 23
-    buildToolsVersion = '23.0.3'
+    minSdkVersion = 21
+    compileSdkVersion = 26
+    buildToolsVersion = '26.0.2'
 
     junitVersion = '4.12'
     mockitoVersion = '1.10.19'
     robolectricVersion = '3.0'
     assertjVersion = '1.7.1'
-    supportVersion = '23.4.0'
-
-    ci = 'true'.equals(System.getenv('CI'))
+    supportVersion = '26.1.0'
 }

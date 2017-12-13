@@ -15,30 +15,24 @@
  */
 package com.lyft.android.scissorssample;
 
-import android.animation.Animator;
-import android.animation.Animator.AnimatorListener;
 import android.animation.ObjectAnimator;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
 import com.lyft.android.scissors.CropView;
-import com.squareup.leakcanary.RefWatcher;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
-import butterknife.Bind;
-import butterknife.ButterKnife;
-import butterknife.OnClick;
-import butterknife.OnTouch;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.subscriptions.CompositeSubscription;
@@ -53,37 +47,15 @@ public class MainActivity extends Activity {
 
   private static final String[] ASPECT_LABELS = {"\u00D8", "1:1", "6:4", "16:9"};
 
-  @Bind(R.id.crop_view)
   CropView cropView;
 
-  @Bind({R.id.crop_fab, R.id.pick_mini_fab, R.id.ratio_fab})
   List<View> buttons;
 
-  @Bind(R.id.pick_fab)
   View pickButton;
 
   CompositeSubscription subscriptions = new CompositeSubscription();
 
   private int selectedRatio = 0;
-  private AnimatorListener animatorListener = new AnimatorListener() {
-    @Override
-    public void onAnimationStart(Animator animation) {
-      ButterKnife.apply(buttons, VISIBILITY, View.INVISIBLE);
-    }
-
-    @Override
-    public void onAnimationEnd(Animator animation) {
-      ButterKnife.apply(buttons, VISIBILITY, View.VISIBLE);
-    }
-
-    @Override
-    public void onAnimationCancel(Animator animation) {
-    }
-
-    @Override
-    public void onAnimationRepeat(Animator animation) {
-    }
-  };
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -92,7 +64,28 @@ public class MainActivity extends Activity {
     setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     setContentView(R.layout.activity_main);
 
-    ButterKnife.bind(this);
+    pickButton = findViewById(R.id.pick_fab);
+    cropView = findViewById(R.id.crop_view);
+    buttons = new ArrayList<>(3);
+    FloatingActionButton crop = findViewById(R.id.crop_fab);
+    buttons.add(crop);
+    FloatingActionButton mini = findViewById(R.id.pick_mini_fab);
+    buttons.add(mini);
+    FloatingActionButton ratio = findViewById(R.id.ratio_fab);
+    buttons.add(ratio);
+
+    crop.setOnClickListener(onCropClicked);
+    ratio.setOnClickListener(onRatioClicked);
+    cropView.setOnTouchListener(onTouchCropView);
+
+    findViewById(R.id.pick_fab).setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View view) {
+        Log.d("LSNJEL", "LSENFSOIUBEF");
+        cropView.extensions()
+            .pickUsing(MainActivity.this, RequestCodes.PICK_IMAGE_FROM_GALLERY);
+      }
+    });
   }
 
   @Override
@@ -110,103 +103,89 @@ public class MainActivity extends Activity {
     }
   }
 
-  @OnClick(R.id.crop_fab)
-  public void onCropClicked() {
-    final File croppedFile = new File(getCacheDir(), "cropped.jpg");
+  public View.OnClickListener onCropClicked = new View.OnClickListener() {
+    @Override
+    public void onClick(View view) {
+      final File croppedFile = new File(getCacheDir(), "cropped.jpg");
 
-    Observable<Void> onSave = Observable.from(cropView.extensions()
-        .crop()
-        .quality(100)
-        .format(JPEG)
-        //.originalSize()
-        //.outputSize(320, 320)
-        //.sourceBitmap(bitmap)
-        .offset(0, 200)
-        .into(croppedFile))
-        .subscribeOn(io())
-        .observeOn(mainThread());
+      Observable<Void> onSave = Observable.from(cropView.extensions()
+          .crop()
+          .quality(100)
+          .format(JPEG)
+          //.originalSize()
+          //.outputSize(320, 320)
+          //.sourceBitmap(bitmap)
+          .offset(0, 200)
+          .into(croppedFile))
+          .subscribeOn(io())
+          .observeOn(mainThread());
 
-    subscriptions.add(onSave
-        .subscribe(new Action1<Void>() {
-          @Override
-          public void call(Void nothing) {
-            CropResultActivity.startUsing(croppedFile, MainActivity.this);
-          }
-        }));
-  }
-
-  @OnClick({R.id.pick_fab, R.id.pick_mini_fab})
-  public void onPickClicked() {
-    cropView.extensions()
-        .pickUsing(this, RequestCodes.PICK_IMAGE_FROM_GALLERY);
-  }
-
-  @OnClick(R.id.ratio_fab)
-  public void onRatioClicked() {
-    final float oldRatio = cropView.getImageRatio();
-    selectedRatio = (selectedRatio + 1) % ASPECT_RATIOS.length;
-
-    // Since the animation needs to interpolate to the native
-    // ratio, we need to get that instead of using 0
-    float newRatio = ASPECT_RATIOS[selectedRatio];
-    if (Float.compare(0, newRatio) == 0) {
-      newRatio = cropView.getImageRatio();
+      subscriptions.add(onSave
+          .subscribe(new Action1<Void>() {
+            @Override
+            public void call(Void nothing) {
+              CropResultActivity.startUsing(croppedFile, MainActivity.this);
+            }
+          }));
     }
+  };
 
-    ObjectAnimator viewportRatioAnimator = ObjectAnimator.ofFloat(cropView, "viewportRatio", oldRatio, newRatio)
-        .setDuration(420);
-    autoCancel(viewportRatioAnimator);
-    viewportRatioAnimator.addListener(animatorListener);
-    viewportRatioAnimator.start();
+  public View.OnClickListener onRatioClicked = new View.OnClickListener() {
+    @Override
+    public void onClick(View view) {
+      final float oldRatio = cropView.getImageRatio();
+      selectedRatio = (selectedRatio + 1) % ASPECT_RATIOS.length;
 
-    Toast.makeText(this, ASPECT_LABELS[selectedRatio], Toast.LENGTH_SHORT).show();
-  }
+      // Since the animation needs to interpolate to the native
+      // ratio, we need to get that instead of using 0
+      float newRatio = ASPECT_RATIOS[selectedRatio];
+      if (Float.compare(0, newRatio) == 0) {
+        newRatio = cropView.getImageRatio();
+      }
+
+      ObjectAnimator viewportRatioAnimator = ObjectAnimator.ofFloat(cropView, "viewportRatio", oldRatio, newRatio)
+          .setDuration(420);
+      viewportRatioAnimator.start();
+
+      Toast.makeText(MainActivity.this, ASPECT_LABELS[selectedRatio], Toast.LENGTH_SHORT).show();
+    }
+  };
 
   @Override
   protected void onDestroy() {
     super.onDestroy();
 
     subscriptions.unsubscribe();
-
-    RefWatcher refWatcher = App.getRefWatcher(this);
-    refWatcher.watch(this, "MainActivity");
-    refWatcher.watch(cropView, "cropView");
   }
 
-  @OnTouch(R.id.crop_view)
-  public boolean onTouchCropView(MotionEvent event) { // GitHub issue #4
-    if (event.getPointerCount() > 1 || cropView.getImageBitmap() == null) {
-      return true;
-    }
-
-    switch (event.getActionMasked()) {
-      case MotionEvent.ACTION_DOWN:
-      case MotionEvent.ACTION_MOVE:
-        ButterKnife.apply(buttons, VISIBILITY, View.INVISIBLE);
-        break;
-      default:
-        ButterKnife.apply(buttons, VISIBILITY, View.VISIBLE);
-        break;
-    }
-    return true;
-  }
-
-  private void updateButtons() {
-    ButterKnife.apply(buttons, VISIBILITY, View.VISIBLE);
-    pickButton.setVisibility(View.GONE);
-  }
-
-  static final ButterKnife.Setter<View, Integer> VISIBILITY = new ButterKnife.Setter<View, Integer>() {
+  public View.OnTouchListener onTouchCropView = new View.OnTouchListener() {
     @Override
-    public void set(final View view, final Integer visibility, int index) {
-      view.setVisibility(visibility);
+    public boolean onTouch(View view, MotionEvent event) {
+      if (event.getPointerCount() > 1 || cropView.getImageBitmap() == null) {
+        return true;
+      }
+
+      switch (event.getActionMasked()) {
+        case MotionEvent.ACTION_DOWN:
+        case MotionEvent.ACTION_MOVE:
+          for (View button: buttons) {
+            button.setVisibility(View.INVISIBLE);
+          }
+          break;
+        default:
+          for (View button: buttons) {
+            button.setVisibility(View.VISIBLE);
+          }
+          break;
+      }
+      return true;
     }
   };
 
-  @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
-  static void autoCancel(ObjectAnimator objectAnimator) {
-    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2) {
-      objectAnimator.setAutoCancel(true);
+  private void updateButtons() {
+    for (View button: buttons) {
+      button.setVisibility(View.VISIBLE);
     }
+    pickButton.setVisibility(View.GONE);
   }
 }

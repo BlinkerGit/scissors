@@ -17,44 +17,64 @@ package com.lyft.android.scissors;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.support.annotation.NonNull;
 
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
+import com.bumptech.glide.util.Util;
+
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 
 class GlideFillViewportTransformation extends BitmapTransformation {
+  private static final String ID = "com.lyft.android.scissors.transformations.GlideFillViewportTransformation";
 
-    public final int viewportWidth;
-    public final int viewportHeight;
+  public final int viewportWidth;
+  public final int viewportHeight;
 
-    public GlideFillViewportTransformation(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
-        super(bitmapPool);
-        this.viewportWidth = viewportWidth;
-        this.viewportHeight = viewportHeight;
-    }
+  public GlideFillViewportTransformation(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
+    super(bitmapPool);
+    this.viewportWidth = viewportWidth;
+    this.viewportHeight = viewportHeight;
+  }
 
-    @Override
-    protected Bitmap transform(BitmapPool bitmapPool, Bitmap source, int outWidth, int outHeight) {
-        int sourceWidth = source.getWidth();
-        int sourceHeight = source.getHeight();
+  @Override
+  protected Bitmap transform(@NonNull BitmapPool bitmapPool, @NonNull Bitmap source, int outWidth, int outHeight) {
+    int sourceWidth = source.getWidth();
+    int sourceHeight = source.getHeight();
 
-        Rect target = CropViewExtensions.computeTargetSize(sourceWidth, sourceHeight, viewportWidth, viewportHeight);
+    Rect target = CropViewExtensions.computeTargetSize(sourceWidth, sourceHeight, viewportWidth, viewportHeight);
 
-        int targetWidth = target.width();
-        int targetHeight = target.height();
+    int targetWidth = target.width();
+    int targetHeight = target.height();
 
-        return Bitmap.createScaledBitmap(
-                source,
-                targetWidth,
-                targetHeight,
-                true);
-    }
+    return Bitmap.createScaledBitmap(
+        source,
+        targetWidth,
+        targetHeight,
+        true);
+  }
 
-    @Override
-    public String getId() {
-        return getClass().getName();
-    }
+  public static GlideFillViewportTransformation createUsing(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
+    return new GlideFillViewportTransformation(bitmapPool, viewportWidth, viewportHeight);
+  }
 
-    public static GlideFillViewportTransformation createUsing(BitmapPool bitmapPool, int viewportWidth, int viewportHeight) {
-        return new GlideFillViewportTransformation(bitmapPool, viewportWidth, viewportHeight);
-    }
+  @Override
+  public int hashCode() {
+    return Util.hashCode(ID.hashCode(),
+        Util.hashCode(
+            Util.hashCode(viewportWidth),
+            Util.hashCode(viewportHeight))
+    );
+  }
+
+  @Override
+  public void updateDiskCacheKey(MessageDigest messageDigest) {
+    messageDigest.update(ID.getBytes());
+
+    byte[] viewPortWidthData = ByteBuffer.allocate(4).putInt(viewportWidth).array();
+    byte[] viewPortHeightData = ByteBuffer.allocate(4).putInt(viewportHeight).array();
+    messageDigest.update(viewPortWidthData);
+    messageDigest.update(viewPortHeightData);
+  }
 }
