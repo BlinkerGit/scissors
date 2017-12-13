@@ -15,7 +15,7 @@
  */
 package com.lyft.android.scissors;
 
-import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -52,16 +52,16 @@ public class GlideBitmapLoader implements BitmapLoader {
   }
 
   private void load(@Nullable final Object model, @NonNull final ImageView imageView, final float scale) {
-    requestManager.asBitmap()
+    requestManager
         .load(model)
         .apply(new RequestOptions()
-            .diskCacheStrategy(DiskCacheStrategy.DATA)
+            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
             .sizeMultiplier(scale)
             .transform(transformation)
         )
-        .listener(new RequestListener<Bitmap>() {
+        .listener(new RequestListener<Drawable>() {
           @Override
-          public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource) {
+          public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
             if (e != null && e.getCause() instanceof OutOfMemoryError) {
               // Don't drop below 70% quality
               if (scale * .9f > .7) {
@@ -80,7 +80,7 @@ public class GlideBitmapLoader implements BitmapLoader {
           }
 
           @Override
-          public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, DataSource dataSource, boolean isFirstResource) {
+          public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
             if (listener != null) {
               listener.onLoadSuccess();
               return true;
