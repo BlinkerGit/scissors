@@ -81,9 +81,9 @@ public class GlideBitmapLoader implements BitmapLoader {
 
           @Override
           public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+            imageView.setImageDrawable(resource);
             if (listener != null) {
               listener.onLoadSuccess();
-              return true;
             }
             return false;
           }
