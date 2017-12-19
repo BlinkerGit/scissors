@@ -243,7 +243,12 @@ public class CropView extends ImageView {
       return null;
     }
 
-    final Bitmap.Config config = Bitmap.Config.RGB_565;
+    final Bitmap.Config srcConfig = src.getConfig();
+    // IF srcConfig is Hardware, it will disallow mutable bitmaps and crash
+    final Bitmap.Config config = BuildConfig.VERSION_CODE >= 26 ?
+            ((srcConfig == null || srcConfig == Bitmap.Config.HARDWARE) ? Bitmap.Config.ARGB_8888 : srcConfig) :
+            (srcConfig == null) ? Bitmap.Config.ARGB_8888 : srcConfig;
+
     final int viewportHeight = touchManager.getViewportHeight();
     final int viewportWidth = touchManager.getViewportWidth();
 
