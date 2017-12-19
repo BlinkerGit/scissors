@@ -15,6 +15,7 @@
  */
 package com.lyft.android.scissors;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
@@ -27,6 +28,7 @@ import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -238,6 +240,7 @@ public class CropView extends ImageView {
    * provided.
    */
   @Nullable
+  @SuppressLint("NewApi")
   public Bitmap crop(float outputScale, Bitmap src, int offsetX, int offsetY) {
     if (src == null || bitmap == null) {
       return null;
@@ -245,7 +248,7 @@ public class CropView extends ImageView {
 
     final Bitmap.Config srcConfig = src.getConfig();
     // IF srcConfig is Hardware, it will disallow mutable bitmaps and crash
-    final Bitmap.Config config = BuildConfig.VERSION_CODE >= 26 ?
+     final Bitmap.Config config = Build.VERSION.SDK_INT >= 26 ?
             ((srcConfig == null || srcConfig == Bitmap.Config.HARDWARE) ? Bitmap.Config.ARGB_8888 : srcConfig) :
             (srcConfig == null) ? Bitmap.Config.ARGB_8888 : srcConfig;
 
