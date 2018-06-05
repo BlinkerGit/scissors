@@ -246,8 +246,7 @@ public class CropView extends ImageView {
       return null;
     }
 
-    final Bitmap.Config srcConfig = src.getConfig();
-    final Bitmap.Config config = srcConfig == null ? Bitmap.Config.ARGB_8888 : srcConfig;
+    final Bitmap.Config config = Bitmap.Config.ARGB_8888;
 
     final int viewportHeight = touchManager.getViewportHeight();
     final int viewportWidth = touchManager.getViewportWidth();
