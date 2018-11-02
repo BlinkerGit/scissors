@@ -28,7 +28,7 @@ import java.io.File;
 import java.io.OutputStream;
 import java.util.concurrent.Future;
 
-class CropViewExtensions {
+public class CropViewExtensions {
 
   static void pickUsing(Activity activity, int requestCode) {
     activity.startActivityForResult(
